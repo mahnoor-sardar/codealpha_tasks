@@ -1,0 +1,6 @@
+app:
+  seed-data: false
+
+spring:
+  thymeleaf:
+    cache: false

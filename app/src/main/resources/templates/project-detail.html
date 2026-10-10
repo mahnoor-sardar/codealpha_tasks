@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<section>
+    <div class="hero">
+        <div>
+            <p class="eyebrow" th:text="${project.owner()}">owner</p>
+            <h1 th:text="${project.name()}">project</h1>
+            <p th:text="${project.description()} ?: 'No description provided.'">description</p>
+        </div>
+        <div class="actions">
+            <span class="badge" th:classappend="${'badge-' + project.health().name().toLowerCase()}"
+                  th:text="${project.health()}">HEALTHY</span>
+            <a class="button" th:href="@{/projects/{id}/edit(id=${project.id()})}">Edit</a>
+            <form th:action="@{/projects/{id}/delete(id=${project.id()})}" method="post"
+                  onsubmit="return confirm('Delete this project and its deployments?');">
+                <button class="button danger" type="submit">Delete</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="grid-two">
+        <article class="panel">
+            <h2>Record a deployment</h2>
+            <form class="form" th:action="@{/projects/{id}/deployments(id=${project.id()})}"
+                  th:object="${deploymentForm}" method="post">
+                <label>
+                    Version
+                    <input type="text" th:field="*{version}" maxlength="64" placeholder="1.2.0" required>
+                    <span class="error" th:if="${#fields.hasErrors('version')}" th:errors="*{version}"></span>
+                </label>
+                <label>
+                    Environment
+                    <select th:field="*{environment}" required>
+                        <option value="">Select environment</option>
+                        <option th:each="env : ${environments}" th:value="${env}" th:text="${env}"></option>
+                    </select>
+                    <span class="error" th:if="${#fields.hasErrors('environment')}" th:errors="*{environment}"></span>
+                </label>
+                <label>
+                    Status
+                    <select th:field="*{status}" required>
+                        <option th:each="status : ${statuses}" th:value="${status}" th:text="${status}"></option>
+                    </select>
+                </label>
+                <label>
+                    Git reference
+                    <input type="text" th:field="*{gitReference}" maxlength="120" placeholder="commit SHA or tag">
+                </label>
+                <label>
+                    Notes
+                    <textarea th:field="*{notes}" maxlength="1000" rows="3"></textarea>
+                </label>
+                <button class="button primary" type="submit">Save deployment</button>
+            </form>
+        </article>
+
+        <article class="panel">
+            <h2>Deployment history</h2>
+            <table th:if="${!deployments.isEmpty()}">
+                <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>Environment</th>
+                    <th>Status</th>
+                    <th>When</th>
+                    <th>Reference</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="deployment : ${deployments}">
+                    <td th:text="${deployment.version()}">1.0.0</td>
+                    <td th:text="${deployment.environment()}">PRODUCTION</td>
+                    <td>
+                        <span class="badge"
+                              th:classappend="${'badge-' + deployment.status().name().toLowerCase()}"
+                              th:text="${deployment.status()}">SUCCESSFUL</span>
+                    </td>
+                    <td th:text="${deployment.deployedAt()}">timestamp</td>
+                    <td th:text="${deployment.gitReference()} ?: '—'">abc123</td>
+                </tr>
+                </tbody>
+            </table>
+            <p class="muted" th:if="${deployments.isEmpty()}">No deployments recorded for this project.</p>
+        </article>
+    </div>
+</section>
+</html>

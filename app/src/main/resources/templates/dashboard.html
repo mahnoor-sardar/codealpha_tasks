@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<section>
+    <div class="hero">
+        <div>
+            <h1>Deployment dashboard</h1>
+            <p>Track project releases across development, staging, and production.</p>
+        </div>
+        <a class="button primary" href="/projects/new">Add project</a>
+    </div>
+
+    <div class="cards" th:if="${!projects.isEmpty()}">
+        <article class="card" th:each="project : ${projects}">
+            <div class="card-head">
+                <h2><a th:href="@{/projects/{id}(id=${project.id()})}" th:text="${project.name()}">project</a></h2>
+                <span class="badge" th:classappend="${'badge-' + project.health().name().toLowerCase()}"
+                      th:text="${project.health()}">HEALTHY</span>
+            </div>
+            <p class="muted" th:text="${project.owner()}">owner</p>
+            <dl class="meta" th:if="${project.latestDeployment() != null}">
+                <div>
+                    <dt>Latest version</dt>
+                    <dd th:text="${project.latestDeployment().version()}">1.0.0</dd>
+                </div>
+                <div>
+                    <dt>Environment</dt>
+                    <dd th:text="${project.latestDeployment().environment()}">PRODUCTION</dd>
+                </div>
+                <div>
+                    <dt>Status</dt>
+                    <dd>
+                        <span class="badge"
+                              th:classappend="${'badge-' + project.latestDeployment().status().name().toLowerCase()}"
+                              th:text="${project.latestDeployment().status()}">SUCCESSFUL</span>
+                    </dd>
+                </div>
+            </dl>
+            <p class="muted" th:if="${project.latestDeployment() == null}">No deployments recorded yet.</p>
+        </article>
+    </div>
+
+    <div class="empty" th:if="${projects.isEmpty()}">
+        <h2>No projects yet</h2>
+        <p>Create a project to start recording deployments.</p>
+    </div>
+</section>
+</html>

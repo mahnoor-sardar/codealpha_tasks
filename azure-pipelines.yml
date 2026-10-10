@@ -1,0 +1,125 @@
+trigger:
+  - main
+  - master
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  javaVersion: '21'
+  dockerImageName: 'devops-project-deployment-tracker'
+  # Configure these in Azure DevOps variable groups or pipeline variables.
+  # Never store credentials in this file.
+  azureContainerRegistry: '$(ACR_LOGIN_SERVER)'
+  azureWebAppName: '$(AZURE_WEBAPP_NAME)'
+  azureResourceGroup: '$(AZURE_RESOURCE_GROUP)'
+
+stages:
+  - stage: BuildAndTest
+    displayName: Build and test
+    jobs:
+      - job: Gradle
+        displayName: Java 21 / Gradle test and package
+        steps:
+          - task: JavaToolInstaller@0
+            displayName: Use Java 21
+            inputs:
+              versionSpec: $(javaVersion)
+              jdkArchitectureOption: x64
+              jdkSourceOption: PreInstalled
+
+          - script: |
+              chmod +x gradlew
+              ./gradlew --no-daemon clean test
+            displayName: Gradle test
+
+          - task: PublishTestResults@2
+            displayName: Publish Gradle test results
+            condition: always()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: '**/build/test-results/test/TEST-*.xml'
+              failTaskOnFailedTests: true
+
+          - script: ./gradlew --no-daemon :app:bootJar
+            displayName: Gradle bootJar
+
+          - publish: app/build/libs/deployment-tracker.jar
+            artifact: application-jar
+            displayName: Publish application JAR
+
+  - stage: Container
+    displayName: Docker image
+    dependsOn: BuildAndTest
+    jobs:
+      - job: DockerBuild
+        displayName: Build and validate image
+        steps:
+          - task: Docker@2
+            displayName: Build image
+            inputs:
+              command: build
+              repository: $(dockerImageName)
+              dockerfile: Dockerfile
+              tags: |
+                $(Build.BuildId)
+                latest
+
+          - script: |
+              set -e
+              IMAGE="$(dockerImageName):$(Build.BuildId)"
+              docker run --rm -d --name tracker-ci -p 8080:8080 "$IMAGE"
+              for i in $(seq 1 30); do
+                if curl -fsS http://127.0.0.1:8080/actuator/health; then
+                  echo "Health endpoint is reachable"
+                  docker stop tracker-ci
+                  exit 0
+                fi
+                sleep 2
+              done
+              docker logs tracker-ci || true
+              docker stop tracker-ci || true
+              echo "Health endpoint did not become ready"
+              exit 1
+            displayName: Validate container health endpoint
+
+  - stage: PublishAcr
+    displayName: Push to Azure Container Registry
+    dependsOn: Container
+    condition: and(succeeded(), eq(variables['PUSH_TO_ACR'], 'true'))
+    jobs:
+      - job: Push
+        displayName: docker push
+        steps:
+          - task: Docker@2
+            displayName: Login to ACR
+            inputs:
+              command: login
+              containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+
+          - task: Docker@2
+            displayName: Build and push
+            inputs:
+              command: buildAndPush
+              containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+              repository: $(dockerImageName)
+              dockerfile: Dockerfile
+              tags: |
+                $(Build.BuildId)
+                latest
+
+  - stage: DeployAppService
+    displayName: Deploy to Azure App Service
+    dependsOn: PublishAcr
+    condition: and(succeeded(), eq(variables['DEPLOY_TO_APP_SERVICE'], 'true'))
+    jobs:
+      - job: Deploy
+        displayName: Web App for Containers
+        steps:
+          - task: AzureWebAppContainer@1
+            displayName: Deploy container
+            inputs:
+              azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
+              appName: $(azureWebAppName)
+              resourceGroupName: $(azureResourceGroup)
+              containers: '$(azureContainerRegistry)/$(dockerImageName):$(Build.BuildId)'

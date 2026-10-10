@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<section class="panel">
+    <h1>Page not found</h1>
+    <p th:text="${message}">The requested resource was not found.</p>
+    <a class="button" href="/">Back to dashboard</a>
+</section>
+</html>

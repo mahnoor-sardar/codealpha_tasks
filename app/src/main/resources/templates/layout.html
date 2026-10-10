@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="layout(content)">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${pageTitle} + ' · Deployment Tracker'">Deployment Tracker</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+<header class="topbar">
+    <a class="brand" href="/">Deployment Tracker</a>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/projects/new">New project</a>
+        <a href="/actuator/health">Health</a>
+    </nav>
+</header>
+<main class="page">
+    <p class="notice" th:if="${notice}" th:text="${notice}"></p>
+    <div th:replace="${content}"></div>
+</main>
+<footer class="footer">
+    CodeAlpha DevOps internship · local demo data is for walkthroughs only
+</footer>
+</body>
+</html>
